@@ -41,5 +41,30 @@ object MazeSolving {
 
     iterate(Set(src), Set(), Map(src -> src))
   }
+
+  def parallelBFS(src: Cell, dst: Cell, maze: Maze): Parent = {
+    val parent = TrieMap[Cell, Cell]()
+    val visited = TrieMap[Cell, Boolean]()
+    var frontier = Set(src)
+
+    parent.put(src, src)
+    visited.put(src, true)
+
+    // Process BFS layers until the frontier is empty or destination is found.
+    while (frontier.nonEmpty && !parent.contains(dst)) {
+      val nextFrontierQueue = new ConcurrentLinkedQueue[Cell]()
+      frontier.par.foreach { cell =>
+        for (neighbor <- neighbors(cell, maze)) {
+          if (visited.putIfAbsent(neighbor, true).isEmpty) {
+            parent.put(neighbor, cell) // Record the parent (i.e. discoverer) of the neighbor.
+            nextFrontierQueue.add(neighbor)
+          }
+        }
+      }
+      // Update frontier with all newly discovered cells.
+      frontier = Iterator.continually(nextFrontierQueue.poll()).takeWhile(_ != null).toSet
+    }
+    parent
+  }
 }
 
