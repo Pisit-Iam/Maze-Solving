@@ -117,9 +117,16 @@ class MazeTest extends AnyFunSuite {
     val parent = parallelBFS(mouse, cheese, empty_maze)
     val endTime = System.nanoTime()
     val time = (endTime - startTime) / 1e6
-    println(s"BFS time = $time ms")
+    println(s"BFS time = $time s")
     //    println(s"Parents: ${parent.mkString(", ")}")
     println(s"Parent size: ${parent.size}")
+  }
+
+  test("aWayOut Test") {
+    val parent = parallelBFS(mouse, cheese, empty_maze)
+    val path = aWayOut(parent, mouse, cheese)
+    if (path.isEmpty) println("No path found!!!")
+    else println(s"Path from $mouse to $cheese: ${path.mkString(" -> ")}")
   }
 
 }

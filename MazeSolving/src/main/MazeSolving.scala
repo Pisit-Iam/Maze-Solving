@@ -66,5 +66,14 @@ object MazeSolving {
     }
     parent
   }
+
+  def aWayOut(parent: Parent, src: Cell, dst: Cell): Option[List[Cell]] = {
+    @tailrec
+    def path(cur: Cell, acc: List[Cell]): List[Cell] = {
+      if (cur == src) cur :: acc else path(parent(cur), cur :: acc)
+    }
+
+    if (parent.contains(dst)) Some(path(dst, Nil)) else None
+  }
 }
 
