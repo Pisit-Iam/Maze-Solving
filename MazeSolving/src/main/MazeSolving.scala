@@ -2,11 +2,14 @@ import scala.collection.parallel.CollectionConverters._
 import scala.annotation.tailrec
 import java.util.concurrent.ConcurrentLinkedQueue
 import scala.collection.concurrent.TrieMap
+import java.util.concurrent.ForkJoinPool
+import scala. collection. JavaConverters. asScalaIteratorConverter
 
 object MazeSolving {
 
   type Maze = Array[Array[Int]]
   type Parent = TrieMap[Cell, Cell]
+  type Parent1 = Array[Array[Option[(Int, Int)]]]
 
   val directions: Seq[(Int, Int)] = List(
     (0, 1), // Right
@@ -45,24 +48,63 @@ object MazeSolving {
   def parallelBFS(src: Cell, dst: Cell, maze: Maze): Parent = {
     val parent = TrieMap[Cell, Cell]()
     val visited = TrieMap[Cell, Boolean]()
-    var frontier = Set(src)
+    val frontier = new ConcurrentLinkedQueue[Cell]()
 
+    val pool = new ForkJoinPool() //execution pool
+    frontier.add(src)
     parent.put(src, src)
     visited.put(src, true)
 
-    // Process BFS layers until the frontier is empty or destination is found.
     while (frontier.nonEmpty && !parent.contains(dst)) {
-      val nextFrontierQueue = new ConcurrentLinkedQueue[Cell]()
-      frontier.par.foreach { cell =>
+      val nextFrontier = new ConcurrentLinkedQueue[Cell]()
+      val currentFrontierList = frontier.iterator().asScala.toList.par
+      currentFrontierList.foreach { cell =>
         for (neighbor <- neighbors(cell, maze)) {
           if (visited.putIfAbsent(neighbor, true).isEmpty) {
             parent.put(neighbor, cell) // Record the parent (i.e. discoverer) of the neighbor.
-            nextFrontierQueue.add(neighbor)
+            nextFrontier.add(neighbor) // add to the next layer
           }
         }
       }
-      // Update frontier with all newly discovered cells.
-      frontier = Iterator.continually(nextFrontierQueue.poll()).takeWhile(_ != null).toSet
+      // let move to the next layer
+      frontier.clear()
+      frontier.addAll(nextFrontier)
+    }
+    parent
+  }
+
+  def shardBFS(src: Cell, dst: Cell, maze: Maze, numShards: Int = 4): Parent1 = {
+    val rows = maze.length
+    val cols = maze(0).length
+    val shardSize = rows / numShards
+
+    val parent = Array.fill(rows, cols)(Option.empty[(Int, Int)])
+    parent(src.x)(src.y) = Some((src.x, src.y))
+
+    val shards = (0 until numShards).map { i =>
+      val startRow = i * shardSize
+      val endRow = if (i == numShards - 1) rows else (i + 1) * shardSize
+      (startRow, endRow)
+    }
+
+    var frontier = Set(src)
+
+    while (frontier.nonEmpty) {
+      val nextFrontier = new ConcurrentLinkedQueue[Cell]()
+
+      shards.par.foreach { case (startRow, endRow) =>
+        frontier.foreach { cell =>
+          if (cell.x >= startRow && cell.x < endRow) {
+            for (neighbor <- neighbors(cell, maze)) {
+              if (parent(neighbor.x)(neighbor.y).isEmpty) {
+                parent(neighbor.x)(neighbor.y) = Some((cell.x, cell.y))
+                nextFrontier.add(neighbor)
+              }
+            }
+          }
+        }
+      }
+      frontier = Iterator.continually(nextFrontier.poll()).takeWhile(_ != null).toSet
     }
     parent
   }

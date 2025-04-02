@@ -105,7 +105,7 @@ class MazeTest extends AnyFunSuite {
     val startTime = System.nanoTime()
     val parent = seqBFS(mouse, empty_maze)
     val endTime = System.nanoTime()
-    val time = (endTime - startTime) / 1e6
+    val time = (endTime - startTime) / 1e9
     println(s"BFS time = $time s")
     //    println(s"Parents: ${parent.mkString(", ")}")
     println(s"Parent size: ${parent.size}")
@@ -116,7 +116,18 @@ class MazeTest extends AnyFunSuite {
     val startTime = System.nanoTime()
     val parent = parallelBFS(mouse, cheese, empty_maze)
     val endTime = System.nanoTime()
-    val time = (endTime - startTime) / 1e6
+    val time = (endTime - startTime) / 1e9
+    println(s"BFS time = $time s")
+    //    println(s"Parents: ${parent.mkString(", ")}")
+    println(s"Parent size: ${parent.size}")
+  }
+
+  test("Shard BFS Test") {
+    println("================ Shard Based BFS in Maze ================")
+    val startTime = System.nanoTime()
+    val parent = parallelBFS(mouse, cheese, empty_maze)
+    val endTime = System.nanoTime()
+    val time = (endTime - startTime) / 1e9
     println(s"BFS time = $time s")
     //    println(s"Parents: ${parent.mkString(", ")}")
     println(s"Parent size: ${parent.size}")
