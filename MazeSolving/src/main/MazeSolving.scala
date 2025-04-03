@@ -1,9 +1,8 @@
 import scala.collection.parallel.CollectionConverters._
 import scala.annotation.tailrec
-import java.util.concurrent.ConcurrentLinkedQueue
 import scala.collection.concurrent.TrieMap
-import java.util.concurrent.ForkJoinPool
-import scala. collection. JavaConverters. asScalaIteratorConverter
+import java.util.concurrent.{Callable, ConcurrentLinkedQueue, ForkJoinPool}
+import scala.jdk.CollectionConverters._
 
 object MazeSolving {
 
@@ -49,27 +48,31 @@ object MazeSolving {
     val parent = TrieMap[Cell, Cell]()
     val visited = TrieMap[Cell, Boolean]()
     val frontier = new ConcurrentLinkedQueue[Cell]()
-
     val pool = new ForkJoinPool() //execution pool
     frontier.add(src)
     parent.put(src, src)
     visited.put(src, true)
-
-    while (frontier.nonEmpty && !parent.contains(dst)) {
+    while (!frontier.isEmpty && !parent.contains(dst)) {
       val nextFrontier = new ConcurrentLinkedQueue[Cell]()
-      val currentFrontierList = frontier.iterator().asScala.toList.par
-      currentFrontierList.foreach { cell =>
-        for (neighbor <- neighbors(cell, maze)) {
-          if (visited.putIfAbsent(neighbor, true).isEmpty) {
-            parent.put(neighbor, cell) // Record the parent (i.e. discoverer) of the neighbor.
-            nextFrontier.add(neighbor) // add to the next layer
+      val currentFrontierList = frontier.iterator().asScala.toList
+      val tasks = currentFrontierList.map { cell =>
+        new Callable[Unit] {
+          override def call(): Unit = {
+            for (neighbor <- neighbors(cell, maze)) {
+              if (visited.putIfAbsent(neighbor, true).isEmpty) {
+                parent.put(neighbor, cell) // Record parent
+                nextFrontier.add(neighbor) // Add to next layer
+              }
+            }
           }
         }
       }
+      pool.invokeAll(tasks.asJava)
       // let move to the next layer
       frontier.clear()
       frontier.addAll(nextFrontier)
     }
+    pool.shutdown()
     parent
   }
 
